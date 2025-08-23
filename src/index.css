@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+body {
+  background-color: black;
+}
+
+.container {
+  margin: 0 auto;
+  width: 1200px;
+}
