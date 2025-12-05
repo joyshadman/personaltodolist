@@ -1,417 +1,459 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { ToastContainer, toast, Bounce } from 'react-toastify'
-import { getDatabase, ref, set, push, onValue, remove } from "firebase/database"
-import 'react-toastify/dist/ReactToastify.css'
-import ambSound from '../assets/amb.mp3' // Import your audio
+// src/components/Btn.jsx
+import { useEffect, useState, useRef } from "react";
+import { db } from "../Config/firebaseConfig";
+import { ref, set, onValue, remove, update } from "firebase/database";
+import toast, { Toaster } from "react-hot-toast";
 
-const Btn = () => {
-  const [toDo, setToDo] = useState("")
-  const [todoList, setTodoList] = useState([])
-  const [editId, setEditId] = useState(false)
-  const [timerEditId, setTimerEditId] = useState(null)
-  const [timerInput, setTimerInput] = useState("")
-  const [timers, setTimers] = useState({})
-  const [remaining, setRemaining] = useState({})
-  const [timerType, setTimerType] = useState("timer")
-  const [alarmTime, setAlarmTime] = useState("")
-  const [checkedTasks, setCheckedTasks] = useState({})
+import ambSound from "../assets/amb.mp3";
+import clickSoundFile from "../assets/click.mp3";
+import errorSoundFile from "../assets/error.mp3";
+
+// Icons
+import {
+  FiTrash2,
+  FiEdit3,
+  FiClock,
+  FiSave,
+  FiXCircle,
+  FiCheckSquare,
+} from "react-icons/fi";
+import { LuAlarmClock } from "react-icons/lu";
+
+import Watermark from "./Watermark";
+
+const Btn = ({ user }) => {
+  const [toDo, setToDo] = useState("");
+  const [todoList, setTodoList] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [timerInput, setTimerInput] = useState("");
+  const [alarmTime, setAlarmTime] = useState("");
+  const [timers, setTimers] = useState({});
+  const [remaining, setRemaining] = useState({});
+  const [timerEditId, setTimerEditId] = useState(null);
+  const [timerType, setTimerType] = useState("timer");
   const [showStopPopup, setShowStopPopup] = useState(false);
-  const [ringingTask, setRingingTask] = useState(null);
-  const alarmRef = useRef(null)
-  const deleteTimeouts = useRef({})
 
-  const notify = (type, msg) => {
-    const opts = {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: false,
-      pauseOnHover: true,
-      draggable: true,
-      transition: Bounce,
-    }
-    if (type === 'error') {
-      toast.error(msg || 'Please, enter your task', { ...opts, theme: "dark", progress: true })
-    } else {
-      toast.success(msg || 'Your task has successfully submitted', { ...opts, theme: "colored", progress: undefined })
-    }
-  }
+  const deleteTimeouts = useRef({});
+  const alarmRef = useRef(null);
+  const clickSound = useRef(null);
+  const errorSound = useRef(null);
 
-  const handleClick = (e) => {
-    e.preventDefault();
-    if (toDo === "") {
-      notify('error');
-    } else {
-      const db = getDatabase();
-      set(push(ref(db, "Todo/")), {
-        TodoName: toDo,
-      }).then(() => {
-        notify('success');
-        setToDo("");
-      });
-    }
+  const userRef = user?.uid ? ref(db, `users/${user.uid}/todos`) : null;
+
+  // Play sounds
+  const playClick = () => {
+    clickSound.current?.pause();
+    clickSound.current.currentTime = 0;
+    clickSound.current.play();
   };
 
+  const playError = () => {
+    errorSound.current?.pause();
+    errorSound.current.currentTime = 0;
+    errorSound.current.play();
+  };
+
+  // Set audio volumes (default 10% for click, 50% for error)
   useEffect(() => {
-    const db = getDatabase();
-    const todoRef = ref(db, "Todo/");
-    onValue(todoRef, (snapshot) => {
-      const arr = [];
-      snapshot.forEach((item) => {
-        arr.push({
-          id: item.key,
-          ...item.val()
-        });
-      });
-      setTodoList(arr);
-    });
+    if (clickSound.current) clickSound.current.volume = 0.1;
+    if (errorSound.current) errorSound.current.volume = 0.5;
+
+    // Request browser notification permission
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
   }, []);
 
-  const handleDelete = (itemId) => {
-    // Clear timer/alarm interval if exists
-    if (timers[itemId]?.intervalId) {
-      clearInterval(timers[itemId].intervalId);
+  // Browser notification helper
+  const notify = (title, body) => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/favicon.ico" });
     }
-    // Clear delete timeout if exists
-    if (deleteTimeouts.current[itemId]) {
-      clearTimeout(deleteTimeouts.current[itemId]);
-      delete deleteTimeouts.current[itemId];
-    }
-    // Remove timer and remaining state for this task
-    setTimers(prev => {
-      const newTimers = { ...prev };
-      delete newTimers[itemId];
-      return newTimers;
-    });
-    setRemaining(prev => {
-      const newRemaining = { ...prev };
-      delete newRemaining[itemId];
-      return newRemaining;
-    });
-    setCheckedTasks(prev => {
-      const newChecked = { ...prev };
-      delete newChecked[itemId];
-      return newChecked;
-    });
-
-    const db = getDatabase();
-    const todoRef = ref(db, `Todo/${itemId}`);
-    remove(todoRef).then(() => {
-      notify('success', 'Task deleted');
-    });
   };
 
-  const handleEdit = (itemId) => {
-    setEditId(itemId);
-    const todoToEdit = todoList.find(item => item.id === itemId);
-    setToDo(todoToEdit.TodoName);
-  };
+  // Load user tasks
+  useEffect(() => {
+    if (!userRef) return;
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const list = Object.keys(data).map((key) => ({
+        id: key,
+        ...data[key],
+      }));
+      setTodoList(list.sort((a, b) => b.createdAt - a.createdAt));
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
 
-  const handleUpdate = (e) => {
+  // Add or Update task
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (toDo === "") {
-      notify('error');
-    } else {
-      const db = getDatabase();
-      set(ref(db, `Todo/${editId}`), {
-        TodoName: toDo,
-      }).then(() => {
-        setEditId(false);
-        setToDo("");
-        notify('success');
-      });
+    if (!toDo.trim()) {
+      playError();
+      return toast.error("⚠ Task cannot be empty!");
+    }
+    if (!user?.uid) {
+      playError();
+      return toast.error("User not authenticated");
+    }
+
+    const timestamp = Date.now();
+
+    try {
+      if (editId) {
+        await update(ref(db, `users/${user.uid}/todos/${editId}`), {
+          TodoName: toDo,
+        });
+        toast.success("✔ Task updated!");
+      } else {
+        const newRef = ref(db, `users/${user.uid}/todos/${timestamp}`);
+        await set(newRef, {
+          TodoName: toDo,
+          completed: false,
+          createdAt: timestamp,
+        });
+        toast.success("✔ Task added!");
+      }
+
+      setToDo("");
+      setEditId(null);
+      playClick();
+    } catch (err) {
+      console.error(err);
+      playError();
+      toast.error("Error saving task.");
     }
   };
 
-  // Timer logic
-  const handleSetTimerClick = (itemId) => {
-    setTimerEditId(itemId)
-    setTimerInput("")
-  }
-
-  // Play alarm/timer sound and show stop popup
-  const playAlarm = (taskId) => {
-    if (alarmRef.current) {
-      alarmRef.current.volume = 0.5;
-      alarmRef.current.currentTime = 0;
-      alarmRef.current.play();
+  // Delete task
+  const handleDelete = async (id) => {
+    if (!user?.uid) {
+      playError();
+      return toast.error("User not authenticated");
     }
-    setRingingTask(taskId);
+
+    clearInterval(timers[id]?.intervalId);
+    clearTimeout(deleteTimeouts.current[id]);
+
+    try {
+      await remove(ref(db, `users/${user.uid}/todos/${id}`));
+      toast.success("🗑 Task deleted");
+      playClick();
+    } catch (err) {
+      console.error(err);
+      playError();
+      toast.error("Delete failed");
+    }
+  };
+
+  // Toggle completed
+  const handleToggle = async (id, current) => {
+    if (!user?.uid) {
+      playError();
+      return toast.error("User not authenticated");
+    }
+
+    try {
+      await update(ref(db, `users/${user.uid}/todos/${id}`), {
+        completed: !current,
+      });
+
+      if (!current) {
+        toast.success("🎉 Completed! Auto-delete in 10 min");
+        deleteTimeouts.current[id] = setTimeout(
+          () => handleDelete(id),
+          600000
+        );
+      } else {
+        clearTimeout(deleteTimeouts.current[id]);
+      }
+
+      playClick();
+    } catch (err) {
+      console.error(err);
+      playError();
+      toast.error("Failed");
+    }
+  };
+
+  const playAlarm = () => {
+    alarmRef.current?.pause();
+    alarmRef.current.currentTime = 0;
+    alarmRef.current.play();
     setShowStopPopup(true);
-    // Only show one toast for alarm/timer ring
-    toast.info(`⏰ ${timerType === "timer" ? "Time's up" : "Alarm"} for: ${todoList.find(t => t.id === taskId)?.TodoName || 'Task'}`, {
-      position: "top-right",
-      autoClose: 7000,
-      theme: "colored",
-      transition: Bounce,
-    });
+    toast("⏰ Time's up!");
+    notify("⏰ Alarm!", "Your timer/alarm has finished!");
   };
 
   const stopAlarm = () => {
-    if (alarmRef.current) {
-      alarmRef.current.pause();
-      alarmRef.current.currentTime = 0;
-    }
+    alarmRef.current?.pause();
+    alarmRef.current.currentTime = 0;
     setShowStopPopup(false);
-    setRingingTask(null);
+    toast.success("Alarm stopped");
   };
 
+  // Timer/Alarm save
   const handleSaveTimer = (itemId) => {
-    if (timerType === "timer") {
-      const minsNum = parseInt(timerInput, 10)
-      if (!isNaN(minsNum) && minsNum > 0) {
-        if (timers[itemId]?.intervalId) {
-          clearInterval(timers[itemId].intervalId)
-        }
-        const end = Date.now() + minsNum * 60 * 1000
-        const intervalId = setInterval(() => {
-          setRemaining(prev => {
-            const secondsLeft = Math.max(0, Math.floor((end - Date.now()) / 1000))
-            if (secondsLeft === 0) {
-              clearInterval(intervalId)
-              playAlarm(itemId);
-            }
-            return { ...prev, [itemId]: secondsLeft }
-          })
-        }, 1000)
-        setTimers(prev => ({
-          ...prev,
-          [itemId]: { end, intervalId }
-        }))
-        setRemaining(prev => ({
-          ...prev,
-          [itemId]: minsNum * 60
-        }))
-        setTimerEditId(null)
-        notify('success', `Timer set for ${minsNum} minute(s)!`)
-      }
-    } else if (timerType === "alarm") {
-      const [alarmHour, alarmMinute] = alarmTime.split(":").map(Number);
-      if (
-        !isNaN(alarmHour) &&
-        !isNaN(alarmMinute) &&
-        alarmHour >= 0 &&
-        alarmHour < 24 &&
-        alarmMinute >= 0 &&
-        alarmMinute < 60
-      ) {
-        if (timers[itemId]?.intervalId) {
-          clearInterval(timers[itemId].intervalId)
-        }
-        const now = new Date();
-        const alarmDate = new Date();
-        alarmDate.setHours(alarmHour, alarmMinute, 0, 0);
-        if (alarmDate < now) {
-          alarmDate.setDate(alarmDate.getDate() + 1);
-        }
-        const msUntilAlarm = alarmDate - now;
-        const intervalId = setInterval(() => {
-          const nowCheck = new Date();
-          if (
-            nowCheck.getHours() === alarmHour &&
-            nowCheck.getMinutes() === alarmMinute
-          ) {
-            clearInterval(intervalId)
-            playAlarm(itemId);
-          }
-        }, 1000)
-        setTimers(prev => ({
-          ...prev,
-          [itemId]: { end: alarmDate.getTime(), intervalId }
-        }))
-        setRemaining(prev => ({
-          ...prev,
-          [itemId]: Math.floor(msUntilAlarm / 1000)
-        }))
-        setTimerEditId(null)
-        notify('success', `Alarm set for ${alarmTime}`)
-      }
-    }
-  }
+    const clearExisting = () => clearInterval(timers[itemId]?.intervalId);
 
-  // Clean up intervals on unmount
+    if (timerType === "timer") {
+      const mins = parseInt(timerInput);
+      if (!mins) {
+        playError();
+        return toast.error("Enter valid minutes!");
+      }
+
+      clearExisting();
+      const end = Date.now() + mins * 60000;
+
+      const intervalId = setInterval(() => {
+        const left = Math.max(0, Math.floor((end - Date.now()) / 1000));
+        setRemaining((p) => ({ ...p, [itemId]: left }));
+        if (left <= 0) {
+          clearInterval(intervalId);
+          playAlarm();
+        }
+      }, 1000);
+
+      setTimers((p) => ({ ...p, [itemId]: { intervalId } }));
+
+      update(ref(db, `users/${user.uid}/todos/${itemId}`), {
+        timer: { type: "timer", minutes: mins, start: Date.now() },
+      });
+
+      toast.success("⏳ Timer set!");
+      notify("Timer Set ⏳", `Your timer for ${mins} minute(s) has started.`);
+
+    } else {
+      const [h, m] = alarmTime.split(":").map(Number);
+      if (isNaN(h) || isNaN(m)) {
+        playError();
+        return toast.error("Enter valid alarm time!");
+      }
+
+      clearExisting();
+      const intervalId = setInterval(() => {
+        const now = new Date();
+        if (now.getHours() === h && now.getMinutes() === m) {
+          clearInterval(intervalId);
+          playAlarm();
+        }
+      }, 1000);
+
+      setTimers((p) => ({ ...p, [itemId]: { intervalId } }));
+
+      update(ref(db, `users/${user.uid}/todos/${itemId}`), {
+        timer: { type: "alarm", hour: h, minute: m },
+      });
+
+      toast.success("⏰ Alarm is set!");
+      notify("Alarm Set ⏰", `Your alarm for ${alarmTime} has been set.`);
+    }
+
+    playClick();
+    setTimerEditId(null);
+    setTimerInput("");
+    setAlarmTime("");
+  };
+
   useEffect(() => {
     return () => {
-      Object.values(timers).forEach(timer => {
-        if (timer.intervalId) clearInterval(timer.intervalId)
-      })
-      Object.values(deleteTimeouts.current).forEach(timeout => clearTimeout(timeout))
-    }
-  }, [timers])
-
-  // Handle checkbox logic
-  const handleCheck = (itemId) => {
-    setCheckedTasks(prev => {
-      const checked = !prev[itemId];
-      if (checked) {
-        // Set timeout to delete after 1 hour
-        const timeout = setTimeout(() => {
-          handleDelete(itemId);
-        }, 60 * 60 * 1000);
-        deleteTimeouts.current[itemId] = timeout;
-        toast.success('Task will be deleted after 1 hour', {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
-          transition: Bounce,
-        });
-      } else {
-        // Uncheck: clear timeout
-        if (deleteTimeouts.current[itemId]) {
-          clearTimeout(deleteTimeouts.current[itemId]);
-          delete deleteTimeouts.current[itemId];
-        }
-      }
-      return { ...prev, [itemId]: checked }
-    });
-  };
+      Object.values(timers).forEach((t) => clearInterval(t.intervalId));
+    };
+  }, [timers]);
 
   return (
-    <div>
-      <div className="w-full flex flex-col items-center justify-center mt-6 px-2">
-        <form
-          className="w-full max-w-md flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch"
-          onSubmit={editId ? handleUpdate : handleClick}
-        >
-          <input
-            type="text"
-            value={toDo}
-            onChange={(e) => setToDo(e.target.value)}
-            className="flex-1 min-w-0 p-3 text-gray-300 bg-gray-900 border border-amber-600 rounded-lg 
-              hover:border-amber-400 hover:scale-[1.02] 
-              focus:border-amber-300 focus:scale-[1.02] 
-              focus:outline-none transition-all duration-700
-              placeholder-gray-500"
-            placeholder="Add a new task..."
-          />
-          <button 
-            type="submit"
-            className="w-full sm:w-auto flex-shrink-0 cursor-pointer transition-all duration-700 relative inline-flex items-center justify-center p-0.5 mb-2 sm:mb-0 sm:me-2 overflow-hidden text-sm font-medium text-gray-900 rounded-lg group bg-gradient-to-br from-red-200 via-red-300 to-yellow-200 group-hover:from-red-200 group-hover:via-red-300 group-hover:to-yellow-200 dark:text-white dark:hover:text-gray-900 focus:ring-4 focus:outline-none focus:ring-red-100 dark:focus:ring-red-400 hover:scale-[1.02]"
-          >
-            <span className="relative w-full sm:w-auto px-5 py-2.5 transition-all ease-in duration-75 bg-white dark:bg-gray-900 rounded-md group-hover:bg-transparent group-hover:dark:bg-transparent">
-              {editId ? 'Update Task' : 'Add Task'}
-            </span>
-          </button>
-        </form>
-        <ToastContainer />
-      </div>
-      <div className="flex flex-col items-center justify-center mt-16 px-2">
-        <h1 className="text-white text-2xl sm:text-3xl md:text-4xl font-extrabold mb-6 text-center">Your Tasks</h1>
-        <div className="w-full max-w-md sm:max-w-lg md:max-w-xl rounded-lg p-4">
-          <ul>
-            {todoList.map((item) => (
-              <li
-                key={item.id}
-                className="w-full border-gray-600 border-b-2 p-5 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-600 transition duration-200 ease-in-out text-white gap-2"
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-950 text-gray-100">
+      {/* Top Nav */}
+      <nav className="bg-gray-900 border-b border-gray-800">
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
+          <span className="text-lg font-bold text-amber-400 flex items-center gap-2">
+            <FiCheckSquare size={22} /> MyTasks
+          </span>
+        </div>
+      </nav>
+
+      {/* Task Section */}
+      <div className="flex items-center justify-center p-6">
+        <div className="w-full max-w-2xl bg-gray-900/80 backdrop-blur-md rounded-xl shadow-xl border border-gray-800 mt-6">
+          <div className="p-6">
+            {/* Add Form */}
+            <form
+              onSubmit={handleSubmit}
+              className="flex gap-2 mb-6 flex-col sm:flex-row"
+            >
+              <input
+                type="text"
+                value={toDo}
+                onChange={(e) => setToDo(e.target.value)}
+                placeholder="Add task..."
+                className="flex-1 p-4 rounded-lg border border-amber-600 bg-white/10 text-white cursor-pointer"
+              />
+              <button
+                type="submit"
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-400 rounded-lg text-white font-semibold hover:scale-105 transition-transform cursor-pointer"
               >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={!!checkedTasks[item.id]}
-                    onChange={() => handleCheck(item.id)}
-                    className="accent-amber-500 w-5 h-5"
-                  />
-                  <span className={checkedTasks[item.id] ? "line-through text-gray-400" : ""}>
-                    {item.TodoName}
-                  </span>
-                </div>
-                <div className="flex gap-2 flex-wrap items-center">
-                  <button
-                    onClick={() => handleEdit(item.id)}
-                    className="cursor-pointer px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
+                {editId ? "Update" : "Add"}
+              </button>
+            </form>
+
+            {/* Task List */}
+            <ul className="space-y-3">
+              {todoList.length ? (
+                todoList.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-lg bg-black/30 hover:bg-black/50 transition-all cursor-pointer"
                   >
-                    Edit
-                  </button>
-                  {timerEditId === item.id ? (
-                    <>
-                      <select
-                        value={timerType}
-                        onChange={e => setTimerType(e.target.value)}
-                        className="px-2 py-1 rounded border border-amber-600 text-black"
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={item.completed || false}
+                        onChange={() =>
+                          handleToggle(item.id, item.completed)
+                        }
+                        className="accent-amber-500 w-6 h-6 cursor-pointer"
+                      />
+                      <span
+                        className={`text-lg ${
+                          item.completed
+                            ? "line-through text-gray-400"
+                            : "text-white"
+                        }`}
                       >
-                        <option value="timer">Timer</option>
-                        <option value="alarm">Alarm</option>
-                      </select>
-                      {timerType === "timer" ? (
-                        <input
-                          type="number"
-                          min="1"
-                          value={timerInput}
-                          onChange={e => setTimerInput(e.target.value)}
-                          className="w-20 px-2 py-1 rounded border border-amber-600 text-black"
-                          placeholder="min"
-                        />
+                        {item.TodoName}
+                      </span>
+                    </div>
+
+                    {/* Right Buttons */}
+                    <div className="flex gap-3 mt-3 sm:mt-0">
+                      {/* Timer Button */}
+                      {timerEditId === item.id ? (
+                        <div className="flex gap-2 bg-gray-800 p-3 rounded-lg border border-amber-600 cursor-pointer">
+                          <select
+                            value={timerType}
+                            onChange={(e) => setTimerType(e.target.value)}
+                            className="px-3 py-2 rounded text-sm bg-gray-900 text-white"
+                          >
+                            <option value="timer">Timer</option>
+                            <option value="alarm">Alarm</option>
+                          </select>
+
+                          {timerType === "timer" ? (
+                            <input
+                              type="number"
+                              value={timerInput}
+                              onChange={(e) =>
+                                setTimerInput(e.target.value)
+                              }
+                              placeholder="Minutes"
+                              className="px-3 py-2 rounded text-sm bg-gray-900 text-white"
+                            />
+                          ) : (
+                            <input
+                              type="time"
+                              value={alarmTime}
+                              onChange={(e) =>
+                                setAlarmTime(e.target.value)
+                              }
+                              className="px-3 py-2 rounded text-sm bg-gray-200 text-black"
+                            />
+                          )}
+
+                          <button
+                            onClick={() => handleSaveTimer(item.id)}
+                            className="bg-green-500 px-4 py-2 rounded-lg hover:scale-105 cursor-pointer"
+                          >
+                            <FiSave size={18} />
+                          </button>
+
+                          <button
+                            onClick={() => setTimerEditId(null)}
+                            className="bg-gray-500 px-4 py-2 rounded-lg hover:scale-105 cursor-pointer"
+                          >
+                            <FiXCircle size={18} />
+                          </button>
+                        </div>
                       ) : (
-                        <input
-                          type="time"
-                          value={alarmTime}
-                          onChange={e => setAlarmTime(e.target.value)}
-                          className="px-2 py-1 rounded border border-amber-600 text-black"
-                        />
+                        <button
+                          onClick={() => setTimerEditId(item.id)}
+                          className="bg-gray-500 px-4 py-2 rounded-lg hover:scale-105 cursor-pointer"
+                        >
+                          <FiClock size={18} />
+                        </button>
                       )}
+
+                      {/* Timer Remaining */}
+                      {remaining[item.id] > 0 && (
+                        <span className="text-amber-300 text-sm animate-pulse">
+                          {Math.floor(remaining[item.id] / 60)}:
+                          {(remaining[item.id] % 60)
+                            .toString()
+                            .padStart(2, "0")}
+                        </span>
+                      )}
+
+                      {/* Edit */}
                       <button
-                        onClick={() => handleSaveTimer(item.id)}
-                        className="cursor-pointer px-3 py-1 text-sm bg-green-500 hover:bg-green-600 rounded-lg text-white"
+                        onClick={() => {
+                          setToDo(item.TodoName);
+                          setEditId(item.id);
+                          playClick();
+                        }}
+                        className="bg-gray-500 px-4 py-2 rounded-lg hover:scale-105 cursor-pointer"
                       >
-                        Save
+                        <FiEdit3 size={18} />
                       </button>
+
+                      {/* Delete */}
                       <button
-                        onClick={() => setTimerEditId(null)}
-                        className="cursor-pointer px-3 py-1 text-sm bg-gray-500 hover:bg-gray-600 rounded-lg text-white"
+                        onClick={() => handleDelete(item.id)}
+                        className="bg-red-600 px-4 py-2 rounded-lg hover:scale-105 cursor-pointer"
                       >
-                        Cancel
+                        <FiTrash2 size={18} />
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => handleSetTimerClick(item.id)}
-                      className="cursor-pointer px-3 py-1 text-sm bg-yellow-500 hover:bg-yellow-600 rounded-lg text-white"
-                    >
-                      Set Timer/Alarm
-                    </button>
-                  )}
-                  {remaining[item.id] > 0 && (
-                    <span className="ml-2 text-xs text-amber-300">
-                      ⏰ {Math.floor(remaining[item.id] / 60)}:{(remaining[item.id] % 60).toString().padStart(2, '0')}
-                    </span>
-                  )}
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="cursor-pointer px-3 py-1 text-sm bg-red-500 hover:bg-red-600 rounded-lg text-white"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <p className="text-gray-400 text-center cursor-pointer">
+                  No tasks yet. Add one!
+                </p>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
+
+      {/* Alarm Popup */}
       {showStopPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-          <div className="bg-white rounded-lg shadow-lg p-6 flex flex-col items-center">
-            <span className="text-lg font-bold mb-4 text-gray-800">
-              ⏰ {timerType === "timer" ? "Timer" : "Alarm"} is ringing!
-            </span>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg text-center max-w-sm w-full">
+            <LuAlarmClock size={40} className="mx-auto text-red-600 mb-3" />
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              Alarm is ringing!
+            </h3>
             <button
               onClick={stopAlarm}
-              className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition"
+              className="w-full py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer"
             >
               Stop
             </button>
           </div>
         </div>
       )}
-      <audio
-        ref={alarmRef}
-        src={ambSound}
-        preload="auto"
-      />
-    </div>
-  )
-}
 
-export default Btn
+      {/* Sounds */}
+      <audio ref={alarmRef} src={ambSound} preload="auto" />
+      <audio ref={clickSound} src={clickSoundFile} preload="auto" />
+      <audio ref={errorSound} src={errorSoundFile} preload="auto" />
+
+      {/* Watermark */}
+      <Watermark />
+
+      <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+    </div>
+  );
+};
+
+export default Btn;
