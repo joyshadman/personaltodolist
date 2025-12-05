@@ -3,10 +3,10 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { app } from "./Config/firebaseConfig";
 
-import Navbar from "./components/navbar";
-import Btn from "./components/Btn";
-import LoginPage from "./components/LoginPage";
-import TermsPolicyPage from "./components/Termsploicy"; 
+import Navbar from "../components/navbar";
+import Btn from "../components/Btn";
+import LoginPage from "../components/LoginPage";
+import TermsPolicyPage from "../components/Termsploicy"; 
 import { Toaster } from "react-hot-toast";
 
 function App() {
