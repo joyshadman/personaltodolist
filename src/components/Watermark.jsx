@@ -13,6 +13,9 @@ const Watermark = () => {
         <div className="flex items-center gap-2 select-none">
           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
           <div className="flex flex-col">
+            <span className="text-[12px] md:text-[16] font-bold text-white/80 hover:text-white transition-colors">
+              Made by
+            </span>
             <span className="text-sm md:text-base font-bold text-white/80 hover:text-white transition-colors">
               Joy Shadman
             </span>
