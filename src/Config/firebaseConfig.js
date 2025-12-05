@@ -1,7 +1,7 @@
-// src/Config/firebaseConfig.js
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database"; // ✅ Realtime DB
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // ✅ Firestore
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -20,6 +20,9 @@ const app = initializeApp(firebaseConfig);
 
 // ✅ Realtime Database instance
 export const db = getDatabase(app);
+
+// ✅ Firestore instance (optional, if you want Firestore later)
+export const firestore = getFirestore(app);
 
 // Auth instance
 export const auth = getAuth(app);

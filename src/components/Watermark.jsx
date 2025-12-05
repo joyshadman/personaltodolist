@@ -6,14 +6,14 @@ const Watermark = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div>
+    <div className="pointer-events-none"> {/* prevent Watermark from blocking clicks */}
       {/* Name + Hamburger + Status dot */}
-      <div className="fixed bottom-4 left-4 z-50 flex items-center gap-3">
+      <div className="fixed bottom-4 left-4 z-50 flex items-center gap-3 pointer-events-auto">
         {/* Status dot + Name/Role */}
         <div className="flex items-center gap-2 select-none">
           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
           <div className="flex flex-col">
-            <span className="text-[12px] md:text-[16] font-bold text-white/80 hover:text-white transition-colors">
+            <span className="text-[12px] md:text-[16px] font-bold text-white/80 hover:text-white transition-colors">
               Made by
             </span>
             <span className="text-sm md:text-base font-bold text-white/80 hover:text-white transition-colors">
@@ -28,19 +28,15 @@ const Watermark = () => {
         {/* Hamburger button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-all duration-300 shadow-md cursor-pointer"
+          className="p-2 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-all duration-300 shadow-md cursor-pointer pointer-events-auto"
         >
-          {isOpen ? (
-            <FiX className="w-5 h-5 text-white" />
-          ) : (
-            <FiMenu className="w-5 h-5 text-white" />
-          )}
+          {isOpen ? <FiX className="w-5 h-5 text-white" /> : <FiMenu className="w-5 h-5 text-white" />}
         </button>
       </div>
 
       {/* Dropdown links */}
       {isOpen && (
-        <div className="fixed bottom-16 left-4 z-50 flex flex-col gap-3 p-4 bg-black/40 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg animate-slideUp">
+        <div className="fixed bottom-16 left-4 z-50 flex flex-col gap-3 p-4 bg-black/40 backdrop-blur-md rounded-xl border border-gray-700 shadow-lg animate-slideUp pointer-events-auto">
           <a
             href="https://github.com/joyshadman"
             target="_blank"

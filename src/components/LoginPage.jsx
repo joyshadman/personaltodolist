@@ -1,13 +1,16 @@
+// src/components/LoginPage.jsx
 import React from "react";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { app, db } from "../Config/firebaseConfig.js";
 import { motion } from "framer-motion";
 import { Shield, Lock, Mail } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Watermark from "./Watermark.jsx";
 
-const LoginPage = () => {
+const LoginPage = ({ setUser }) => {
+  const navigate = useNavigate();
+
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
@@ -15,6 +18,7 @@ const LoginPage = () => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
+      // Save user to Firestore if new
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
 
@@ -27,6 +31,12 @@ const LoginPage = () => {
           createdAt: new Date(),
         });
       }
+
+      // Update App-level state
+      setUser(user);
+
+      // Redirect to home
+      navigate("/");
     } catch (error) {
       console.error("Login error:", error);
     }
@@ -40,7 +50,6 @@ const LoginPage = () => {
         transition={{ duration: 0.6 }}
         className="w-full max-w-md bg-gray-900/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-gray-800 relative overflow-hidden"
       >
-        {/* Glowing Animation */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.4 }}
@@ -54,7 +63,6 @@ const LoginPage = () => {
           </h1>
           <p className="text-gray-400 mb-8">Your productivity starts here</p>
 
-          {/* Security badges */}
           <div className="flex justify-center gap-6 mb-6 text-gray-400 text-sm">
             <div className="flex items-center gap-1"><Shield size={16} /> Secure Login</div>
             <div className="flex items-center gap-1"><Lock size={16} /> Encrypted</div>
@@ -75,21 +83,17 @@ const LoginPage = () => {
             Continue with Google
           </motion.button>
 
-          {/* Additional Login Options */}
           <div className="mt-6 text-sm text-gray-500">More login methods coming soon...</div>
 
-          {/* Footer */}
           <div className="text-xs mt-8 text-gray-600">
-            <p className="text-xs mt-8 text-gray-600">
-              By signing in, you agree to our{" "}
-              <Link to="/terms" className="text-orange-400 hover:underline">
-                Terms & Privacy Policy
-              </Link>
-            </p>
+            By signing in, you agree to our{" "}
+            <Link to="/terms" className="text-orange-400 hover:underline">
+              Terms & Privacy Policy
+            </Link>
           </div>
         </div>
       </motion.div>
-        <Watermark />
+      <Watermark />
     </div>
   );
 };
