@@ -22,7 +22,8 @@
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.10.1",
     "react-toastify": "^11.0.5",
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^4.1.11",
+    "yocto-queue": "^0.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
