@@ -88,14 +88,23 @@ export const FileRow = ({
 
 export const RenderFolderRecursive = ({
   node, notes, folders, openFolders, setOpenFolders, selectedFolder, setSelectedFolder,
-  onDrop, activeNote, selectNote, onDragStart, onContextMenu, onDelete, onRename
+  onDrop, activeNote, selectNote, onDragStart, onContextMenu, onDelete, onRename,
+  isRoot = false // Added flag to handle scrolling on the root container
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const folderNotes = Object.keys(notes).filter((nid) => notes[nid].folder === node.id);
   const isOpen = openFolders[node.id] || false;
   const isSelected = selectedFolder === node.id;
 
-  return (
+  // Custom Scrollbar Logic injected via Style Tag
+  const scrollbarCSS = `
+    .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+    .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 20px; }
+    .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(249, 115, 22, 0.5); }
+  `;
+
+  const content = (
     <div className="flex flex-col mb-1 w-full overflow-hidden">
       <div
         onClick={() => {
@@ -178,4 +187,18 @@ export const RenderFolderRecursive = ({
       </AnimatePresence>
     </div>
   );
+
+  // If this is the root call, wrap it in a scrollable div
+  if (isRoot) {
+    return (
+      <>
+        <style>{scrollbarCSS}</style>
+        <div className="sidebar-scroll overflow-y-auto max-h-[calc(100vh-200px)] pr-2 transition-all">
+          {content}
+        </div>
+      </>
+    );
+  }
+
+  return content;
 };

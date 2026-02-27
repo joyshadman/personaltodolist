@@ -5,12 +5,11 @@ import { ref, set, onValue, remove, update } from "firebase/database";
 import toast, { Toaster } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipLoader } from "react-spinners";
-// Fixed the icons: Removed FiQuote, added FiInfo or FiCpu for better vibes
 import { 
   FiTrash2, FiEdit3, FiClock, FiXCircle, FiPlus, 
-  FiActivity, FiAward, FiZap, FiTarget, FiVolumeX, FiInfo 
+  FiActivity, FiAward, FiZap, FiTarget, FiVolumeX, 
+  FiSun, FiCloud, FiCloudRain, FiCloudSnow, FiWind, FiMapPin, FiSearch
 } from "react-icons/fi";
-// Using Lucide for the Quote icon as it's more reliable
 import { Quote } from "lucide-react"; 
 
 // Saved Imports
@@ -41,8 +40,10 @@ const Btn = ({ user }) => {
   const [isSorting, setIsSorting] = useState(false);
   const [ringingId, setRingingId] = useState(null);
   
-  // Motivation State
-  const [quote, setQuote] = useState({ text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" });
+  // Motivation & Weather State
+  const [quote, setQuote] = useState({ text: "Success is not final...", author: "Winston Churchill" });
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   const refs = { 
     alarm: useRef(null), 
@@ -62,7 +63,29 @@ const Btn = ({ user }) => {
 
   const userPath = useMemo(() => user?.uid ? `users/${user.uid}/todos` : null, [user?.uid]);
 
-  // Fetch Motivation (Using a more stable endpoint)
+  // Fetch Weather Logic
+  const fetchWeather = async (lat, lon, cityLabel = "Current") => {
+    setWeatherLoading(true);
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+      const data = await res.json();
+      setWeather({ ...data.current_weather, city: cityLabel });
+    } catch (e) {
+      console.log("Weather error");
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  // Geo-location request on mount
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude, "Local"),
+      () => fetchWeather(40.7128, -74.0060, "New York") // Fallback
+    );
+  }, []);
+
+  // Fetch Motivation
   useEffect(() => {
     const fetchQuote = async () => {
       try {
@@ -72,13 +95,12 @@ const Btn = ({ user }) => {
           const parsed = JSON.parse(data.contents);
           setQuote({ text: parsed[0].q, author: parsed[0].a });
         }
-      } catch (e) {
-        console.log("Quote fetch error - using fallback");
-      }
+      } catch (e) { console.log("Quote fallback used"); }
     };
     fetchQuote();
   }, []);
 
+  // Sync Todo List
   useEffect(() => {
     if (!userPath) return;
     const itemsRef = ref(db, userPath);
@@ -89,6 +111,7 @@ const Btn = ({ user }) => {
     });
   }, [userPath]);
 
+  // Timer Logic
   useEffect(() => {
     const ticker = setInterval(() => {
       const now = Date.now();
@@ -186,7 +209,7 @@ const Btn = ({ user }) => {
         {!focusMode && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             
-            {/* MOTIVATION CARD - Fixed Icon */}
+            {/* MOTIVATION CARD */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -196,6 +219,9 @@ const Btn = ({ user }) => {
               <p className="text-lg font-medium italic text-white/80 leading-relaxed mb-4">"{quote.text}"</p>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500">— {quote.author}</p>
             </motion.div>
+
+            {/* WEATHER WIDGET - MANUAL OPTION INTEGRATED */}
+            <WeatherCard weather={weather} loading={weatherLoading} onManualSearch={fetchWeather} />
 
             <div className="mt-12 flex flex-col items-center">
               <ProgressRing percent={stats.percent} />
@@ -213,7 +239,6 @@ const Btn = ({ user }) => {
               </div>
             </motion.form>
 
-            {/* MAGIC SORT BTN */}
             <div className="flex justify-end mb-4 pr-2">
               <button 
                 onClick={() => { setIsSorting(true); playSound("click"); setTimeout(() => setIsSorting(false), 1000); }} 
@@ -247,22 +272,7 @@ const Btn = ({ user }) => {
         )}
       </main>
 
-      {/* Alarm Modal */}
-      <AnimatePresence>
-        {ringingId && !focusMode && (
-          <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-md">
-            <div className="bg-red-500/80 p-6 rounded-[2.5rem] shadow-2xl flex items-center justify-between backdrop-blur-xl border border-white/20">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase opacity-70">Timer Elapsed</p>
-                <h4 className="font-bold truncate text-lg">{todoList.find(t => t.id === ringingId)?.TodoName}</h4>
-              </div>
-              <button onClick={() => handleStopAlarm(ringingId)} className="bg-white text-red-600 px-6 py-3 rounded-full font-black flex items-center gap-2 hover:scale-105 active:scale-95 shadow-xl transition-all"><FiVolumeX /> STOP</button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Timer Settings Modal */}
+      {/* Timer Modal */}
       <AnimatePresence>
         {timerModal.open && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[150] flex items-center justify-center p-6 backdrop-blur-3xl bg-black/60">
@@ -289,6 +299,95 @@ const Btn = ({ user }) => {
       <audio ref={refs.error} src={errorSoundFile} />
       <Toaster position="bottom-center" />
       <Watermark />
+    </div>
+  );
+};
+
+// ENHANCED WEATHER COMPONENT
+const WeatherCard = ({ weather, loading, onManualSearch }) => {
+  const [isSearching, setIsSearching] = useState(false);
+  const [cityInput, setCityInput] = useState("");
+
+  const handleManualSearch = async (e) => {
+    e.preventDefault();
+    if (!cityInput.trim()) return;
+    try {
+      // Nominatim for free geocoding
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityInput)}&limit=1`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        onManualSearch(data[0].lat, data[0].lon, data[0].display_name.split(',')[0]);
+        setIsSearching(false);
+        setCityInput("");
+      } else {
+        toast.error("City not found");
+      }
+    } catch (err) {
+      toast.error("Search failed");
+    }
+  };
+
+  const getWeatherIcon = (code) => {
+    if (code <= 3) return <FiSun className="text-yellow-400" />;
+    if (code <= 48) return <FiCloud className="text-gray-400" />;
+    if (code <= 67) return <FiCloudRain className="text-blue-400" />;
+    if (code <= 77) return <FiCloudSnow className="text-white" />;
+    return <FiWind className="text-gray-300" />;
+  };
+
+  return (
+    <div className="mt-6 flex flex-col items-center">
+      <AnimatePresence mode="wait">
+        {!isSearching ? (
+          <motion.div 
+            key="display"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            onClick={() => setIsSearching(true)}
+            className="flex items-center justify-center gap-6 py-4 bg-white/[0.02] border border-white/[0.05] rounded-[2rem] backdrop-blur-xl group hover:border-orange-500/30 transition-all cursor-pointer px-8 w-fit"
+          >
+            {loading ? <ClipLoader size={14} color="#f97316" /> : (
+              <>
+                <div className="text-2xl">{getWeatherIcon(weather?.weathercode)}</div>
+                <div className="flex flex-col items-start">
+                  <span className="text-xl font-black">{Math.round(weather?.temperature || 0)}°C</span>
+                  <span className="text-[8px] font-black uppercase text-orange-500 tracking-widest">{weather?.city || "Environment"}</span>
+                </div>
+                <div className="h-6 w-[1px] bg-white/10" />
+                <div className="flex flex-col items-start pr-2">
+                  <span className="text-sm font-bold">{weather?.windspeed || 0} <span className="text-[10px] opacity-40">km/h</span></span>
+                  <span className="text-[8px] font-black uppercase text-white/20 tracking-widest">Wind</span>
+                </div>
+                <FiMapPin className="text-white/10 group-hover:text-orange-500 transition-colors" size={14} />
+              </>
+            )}
+          </motion.div>
+        ) : (
+          <motion.form 
+            key="search"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            onSubmit={handleManualSearch}
+            className="flex items-center gap-2 bg-white/[0.05] p-2 rounded-full border border-white/10 backdrop-blur-3xl"
+          >
+            <input 
+              autoFocus
+              value={cityInput}
+              onChange={(e) => setCityInput(e.target.value)}
+              placeholder="Search city..."
+              className="bg-transparent px-4 py-2 outline-none text-sm font-bold w-36"
+            />
+            <button type="submit" className="p-2 bg-orange-500 text-black rounded-full hover:scale-105 active:scale-95 transition-all">
+              <FiSearch size={16} />
+            </button>
+            <button type="button" onClick={() => setIsSearching(false)} className="p-2 text-white/30 hover:text-white">
+              <FiXCircle size={16} />
+            </button>
+          </motion.form>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -347,9 +446,9 @@ const SwipeableTask = ({ item, userPath, remaining, setToDo, setEditId, setCateg
       </div>
 
       <div className="flex items-center gap-3">
-        <button onClick={() => setTimerModal({ open: true, id: item.id, input: "" })} className="p-2 text-white/30 hover:text-orange-400"><FiClock size={18}/></button>
-        <button onClick={() => { setToDo(item.TodoName); setEditId(item.id); setCategory(item.category || "General"); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="p-2 text-white/30 hover:text-white"><FiEdit3 size={18}/></button>
-        <button onClick={() => { remove(ref(db, `${userPath}/${item.id}`)); }} className="p-2 text-white/30 hover:text-red-500"><FiTrash2 size={18}/></button>
+        <button onClick={() => setTimerModal({ open: true, id: item.id, input: "" })} className="p-2 text-white/30 hover:text-orange-400 transition-colors"><FiClock size={18}/></button>
+        <button onClick={() => { setToDo(item.TodoName); setEditId(item.id); setCategory(item.category || "General"); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="p-2 text-white/30 hover:text-white transition-colors"><FiEdit3 size={18}/></button>
+        <button onClick={() => { remove(ref(db, `${userPath}/${item.id}`)); }} className="p-2 text-white/30 hover:text-red-500 transition-colors"><FiTrash2 size={18}/></button>
       </div>
     </div>
   </motion.div>

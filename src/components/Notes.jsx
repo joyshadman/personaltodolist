@@ -117,6 +117,13 @@ const Notes = ({ user, onSignOut }) => {
         .editor-container h1 { font-size: 3.5rem; font-weight: 900; color: white; margin: 1rem 0; letter-spacing: -0.05em; }
         .editor-container h2 { font-size: 2.2rem; font-weight: 800; color: #f97316; margin: 0.8rem 0; }
         .editor-container blockquote { border-left: 4px solid #f97316; padding-left: 1.5rem; font-style: italic; color: #9ca3af; margin: 1.5rem 0; background: rgba(255,255,255,0.02); padding-block: 0.5rem; }
+        
+        /* Glassy Sidebar Scrollbar Fix */
+        .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(249, 115, 22, 0.4); }
+        
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
       `}</style>
@@ -154,7 +161,7 @@ const Notes = ({ user, onSignOut }) => {
 
       <div className="flex flex-1 h-screen z-10 w-full relative">
         
-        {/* SIDEBAR - Glassy Transparent with mt-20 to fix Navbar overlap */}
+        {/* SIDEBAR */}
         <motion.aside 
           initial={false}
           animate={{ 
@@ -196,20 +203,28 @@ const Notes = ({ user, onSignOut }) => {
               </motion.button>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2" onClick={(e) => e.target === e.currentTarget && setSelectedFolder(null)}>
+            {/* SCROLLABLE AREA FIX */}
+            <div 
+              className="flex-1 overflow-y-auto sidebar-scroll pr-2 transition-all"
+              style={{ maxHeight: "calc(100vh - 280px)" }} // Limits height to prevent screen overflow
+              onClick={(e) => e.target === e.currentTarget && setSelectedFolder(null)}
+            >
               {buildFolderTree(folders).map((root) => (
                 <RenderFolderRecursive 
                   key={root.id} 
+                  isRoot={true} // Triggers the root styling in SidebarItem
                   node={root} notes={notes} folders={folders} openFolders={openFolders} setOpenFolders={setOpenFolders} selectedFolder={selectedFolder} setSelectedFolder={setSelectedFolder} activeNote={activeNote} selectNote={selectNote} 
                   onContextMenu={(e, t, i, n) => { e.preventDefault(); }}
                   onDelete={(t, i, n) => setDelModal({ isOpen: true, type: t, id: i, name: n })}
                 />
               ))}
+              {/* Bottom padding to ensure last items aren't cut off */}
+              <div className="h-20" /> 
             </div>
           </div>
         </motion.aside>
 
-        {/* MAIN EDITOR - Added mt-20 and pt-10 to separate from Navbar */}
+        {/* MAIN EDITOR */}
         <main className="flex-1 overflow-y-auto custom-scrollbar mt-20">
           <motion.div 
             layout
@@ -247,7 +262,6 @@ const Notes = ({ user, onSignOut }) => {
                     </motion.button>
                   </div>
                   
-                  {/* STICKY TOOLBAR - Offset top-4 so it stays below the Navbar gap */}
                   <div className="sticky top-4 z-30 mb-12 p-1.5 bg-white/[0.01] border border-white/5 backdrop-blur-3xl rounded-3xl shadow-2xl">
                     <EditorToolbar execCmd={(cmd, val) => {
                        if (editorRef.current) editorRef.current.focus();
