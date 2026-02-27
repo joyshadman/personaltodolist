@@ -7,7 +7,11 @@ const Watermark = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[100]"> 
+    /* Added 'hidden md:block': 
+       'hidden' hides it by default (mobile/tablet).
+       'md:block' makes it visible from medium screens (768px+) upwards.
+    */
+    <div className="hidden md:block pointer-events-none fixed inset-0 z-[100]"> 
       
       {/* --- Main Floating Badge --- */}
       <motion.div 
