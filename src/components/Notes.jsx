@@ -11,7 +11,7 @@ import { FileRow, RenderFolderRecursive } from "./Notes/SidebarItem";
 import EditorToolbar from "./Notes/EditorToolbar";
 import NamingModal from "./Notes/NamingModal";
 import DeleteModal from "./Notes/DeleteModal";
-import { Plus, FolderPlus, Save, ChevronRight, Command, CloudCheck, CloudUpload } from "lucide-react";
+import { Plus, FolderPlus, Save, ChevronRight, Command, CloudCheck, CloudUpload, PanelLeftOpen, Layout } from "lucide-react";
 
 const Notes = ({ user, onSignOut }) => {
   const [notes, setNotes] = useState({});
@@ -31,7 +31,17 @@ const Notes = ({ user, onSignOut }) => {
   const editorRef = useRef(null);
   const autoSaveTimer = useRef(null);
 
-  // 1. Data Fetching
+  // 1. Responsive & Initial Logic
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) setLeftCollapsed(true);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 2. Data Fetching
   useEffect(() => {
     if (!user) return;
     const unsubNotes = onValue(ref(db, `users/${user.uid}/notes`), (snap) => {
@@ -46,7 +56,7 @@ const Notes = ({ user, onSignOut }) => {
     return () => { unsubNotes(); unsubFolders(); };
   }, [user, activeNote, isDirty]);
 
-  // 2. Manual/Auto Save Logic
+  // 3. Save Logic
   const saveNote = useCallback(async () => {
     if (!activeNote || !user || !isDirty) return;
     
@@ -66,33 +76,13 @@ const Notes = ({ user, onSignOut }) => {
     }
   }, [activeNote, user, isDirty, title]);
 
-  // 3. Auto-Save Effect (Debounced)
-  useEffect(() => {
-    if (isDirty) {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-      autoSaveTimer.current = setTimeout(() => {
-        saveNote();
-      }, 3000); // Saves after 3 seconds of inactivity
-    }
-    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
-  }, [isDirty, saveNote]);
-
-  const execCmd = (command, value = null) => {
-    if (editorRef.current) editorRef.current.focus();
-    if (command === "formatBlock") {
-      document.execCommand(command, false, `<${value}>`);
-    } else {
-      document.execCommand(command, false, value);
-    }
-    setIsDirty(true);
-  };
-
   const selectNote = (id) => {
-    if (isDirty) saveNote(); // Save current note before switching
+    if (isDirty) saveNote();
     setActiveNote(id);
     setTitle(notes[id]?.title || "Untitled");
     setIsDirty(false);
     if (editorRef.current) editorRef.current.innerHTML = notes[id]?.content_enc || "";
+    if (window.innerWidth < 768) setLeftCollapsed(true);
   };
 
   const handleCreateSubmit = async (name) => {
@@ -105,13 +95,6 @@ const Notes = ({ user, onSignOut }) => {
     await set(ref(db, `users/${user.uid}/${type}/${id}`), data);
     if (modal.type === "Note") selectNote(id);
     setModal({ ...modal, isOpen: false });
-  };
-
-  const confirmDelete = async () => {
-    const { type, id } = delModal;
-    await remove(ref(db, `users/${user.uid}/${type === 'file' ? 'notes' : 'folders'}/${id}`));
-    if (activeNote === id) setActiveNote(null);
-    setDelModal({ ...delModal, isOpen: false });
   };
 
   const buildFolderTree = (f) => {
@@ -134,7 +117,6 @@ const Notes = ({ user, onSignOut }) => {
         .editor-container h1 { font-size: 3.5rem; font-weight: 900; color: white; margin: 1rem 0; letter-spacing: -0.05em; }
         .editor-container h2 { font-size: 2.2rem; font-weight: 800; color: #f97316; margin: 0.8rem 0; }
         .editor-container blockquote { border-left: 4px solid #f97316; padding-left: 1.5rem; font-style: italic; color: #9ca3af; margin: 1.5rem 0; background: rgba(255,255,255,0.02); padding-block: 0.5rem; }
-        .editor-container pre { background: rgba(0,0,0,0.3); padding: 1.2rem; border-radius: 1rem; font-family: 'JetBrains Mono', monospace; border: 1px solid rgba(255,255,255,0.1); color: #fdba74; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
       `}</style>
@@ -142,105 +124,177 @@ const Notes = ({ user, onSignOut }) => {
       {/* BACKGROUND ANIMATION */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <motion.div 
-          animate={{ x: [0, 50, -30, 0], y: [0, -30, 30, 0], opacity: [0.1, 0.2, 0.1] }}
-          transition={{ duration: 15, repeat: Infinity }}
-          className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-orange-600 blur-[120px] rounded-full"
+          animate={{ x: [0, 30, -30, 0], y: [0, -20, 20, 0], opacity: [0.08, 0.12, 0.08] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[-5%] left-[-5%] w-[60%] h-[60%] bg-orange-600 blur-[130px] rounded-full"
+        />
+        <motion.div 
+          animate={{ x: [0, -30, 30, 0], y: [0, 20, -20, 0], opacity: [0.05, 0.1, 0.05] }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600 blur-[130px] rounded-full"
         />
       </div>
 
       <Navbar user={user} onSignOut={onSignOut} />
 
-      <div className="flex flex-1 h-screen pt-16 z-10 w-full">
-        {/* SIDEBAR */}
-        <aside className={`transition-all duration-500 bg-white/[0.01] backdrop-blur-3xl border-r border-white/5 flex flex-col ${leftCollapsed ? "w-0 overflow-hidden" : "w-full md:w-80"}`}>
-          <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col h-full p-6">
-            <div className="flex items-center justify-between mb-8 mt-10">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 italic">Library</h2>
-              <button onClick={() => setLeftCollapsed(true)} className="p-2 hover:bg-white/5 rounded-full text-gray-400"><ChevronRight className="rotate-180" size={16}/></button>
+      {/* FLOATING TOGGLE ICON */}
+      <AnimatePresence>
+        {leftCollapsed && (
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            onClick={() => setLeftCollapsed(false)}
+            className="fixed top-24 left-6 z-[60] p-4 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-2xl text-orange-500 hover:bg-white/10 transition-all shadow-2xl"
+          >
+            <PanelLeftOpen size={20} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      <div className="flex flex-1 h-screen z-10 w-full relative">
+        
+        {/* SIDEBAR - Glassy Transparent with mt-20 to fix Navbar overlap */}
+        <motion.aside 
+          initial={false}
+          animate={{ 
+            width: leftCollapsed ? 0 : (window.innerWidth < 768 ? "100%" : 340),
+            opacity: leftCollapsed ? 0 : 1
+          }}
+          transition={{ type: "spring", stiffness: 260, damping: 28 }}
+          className="relative z-50 h-full mt-20 bg-white/[0.02] backdrop-blur-[40px] border-r border-white/[0.05] flex flex-col overflow-hidden"
+        >
+          <div className="flex flex-col h-full p-6 min-w-[340px]">
+            <div className="flex items-center justify-between mb-8 px-2">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/20">
+                  <Layout size={18} className="text-white" />
+                </div>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-white">Library</h2>
+              </div>
+              <button onClick={() => setLeftCollapsed(true)} className="p-2.5 hover:bg-white/5 rounded-full text-gray-400 transition-colors">
+                <ChevronRight className="rotate-180" size={18}/>
+              </button>
             </div>
 
-            <div className="flex gap-3 mb-10">
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setModal({ isOpen: true, type: "Folder" })} className="flex-1 py-3 bg-white/[0.03] border border-white/10 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gray-300 flex items-center justify-center gap-2 transition-all">
+            <div className="flex gap-3 mb-10 px-2">
+              <motion.button 
+                whileHover={{ scale: 1.02 }} 
+                whileTap={{ scale: 0.98 }} 
+                onClick={() => setModal({ isOpen: true, type: "Folder" })} 
+                className="flex-1 py-3.5 bg-white/[0.04] border border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-300 flex items-center justify-center gap-2 hover:bg-white/[0.08] transition-all"
+              >
                 <FolderPlus size={14}/> {selectedFolder ? "Sub" : "Folder"}
               </motion.button>
-              <motion.button whileHover={{ scale: 1.02, backgroundColor: '#ea580c' }} whileTap={{ scale: 0.98 }} onClick={() => setModal({ isOpen: true, type: "Note" })} className="flex-1 py-3 bg-orange-600 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-white shadow-lg shadow-orange-600/20 flex items-center justify-center gap-2">
+              <motion.button 
+                whileHover={{ scale: 1.02 }} 
+                whileTap={{ scale: 0.98 }} 
+                onClick={() => setModal({ isOpen: true, type: "Note" })} 
+                className="flex-1 py-3.5 bg-orange-600 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white flex items-center justify-center gap-2 hover:bg-orange-500 shadow-lg shadow-orange-600/20 transition-all"
+              >
                 <Plus size={14}/> Note
               </motion.button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-2" onClick={(e) => e.target === e.currentTarget && setSelectedFolder(null)}>
-              {buildFolderTree(folders).map((root, i) => (
-                <motion.div key={root.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                  <RenderFolderRecursive 
-                    node={root} notes={notes} folders={folders} openFolders={openFolders} setOpenFolders={setOpenFolders} selectedFolder={selectedFolder} setSelectedFolder={setSelectedFolder} activeNote={activeNote} selectNote={selectNote} 
-                    onContextMenu={(e, t, i, n) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, type: t, id: i, name: n }); }}
-                    onDelete={(t, i, n) => setDelModal({ isOpen: true, type: t, id: i, name: n })}
-                  />
-                </motion.div>
+              {buildFolderTree(folders).map((root) => (
+                <RenderFolderRecursive 
+                  key={root.id} 
+                  node={root} notes={notes} folders={folders} openFolders={openFolders} setOpenFolders={setOpenFolders} selectedFolder={selectedFolder} setSelectedFolder={setSelectedFolder} activeNote={activeNote} selectNote={selectNote} 
+                  onContextMenu={(e, t, i, n) => { e.preventDefault(); }}
+                  onDelete={(t, i, n) => setDelModal({ isOpen: true, type: t, id: i, name: n })}
+                />
               ))}
             </div>
-          </motion.div>
-        </aside>
+          </div>
+        </motion.aside>
 
-        {/* MAIN EDITOR */}
-        <main className="mt-20 flex-1 p-8 md:p-20 overflow-y-auto relative bg-transparent backdrop-blur-[15px] custom-scrollbar">
-          <AnimatePresence mode="wait">
-            {activeNote ? (
-              <motion.div key={activeNote} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }} transition={{ duration: 0.3 }} className="max-w-4xl mx-auto w-full">
-                <div className="flex justify-between items-start mb-16">
-                  <div className="flex-1">
-                    <input 
-                      value={title} 
-                      onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }} 
-                      className="bg-transparent text-6xl md:text-8xl font-black outline-none text-white w-full tracking-tighter placeholder:opacity-5" 
-                      placeholder="Untitled"
-                    />
-                    <div className="flex items-center gap-2 mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                      {saveStatus === "saving" ? (
-                        <span className="flex items-center gap-2 text-orange-400"><CloudUpload size={12} className="animate-bounce" /> Cloud Syncing...</span>
-                      ) : saveStatus === "saved" ? (
-                        <span className="flex items-center gap-2 text-green-500"><CloudCheck size={12} /> Sync Complete</span>
-                      ) : (
-                        <span className="opacity-40">All changes secured</span>
-                      )}
+        {/* MAIN EDITOR - Added mt-20 and pt-10 to separate from Navbar */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar mt-20">
+          <motion.div 
+            layout
+            className="p-6 md:p-20 pt-10 max-w-5xl mx-auto transition-all duration-500"
+          >
+            <AnimatePresence mode="wait">
+              {activeNote ? (
+                <motion.div key={activeNote} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                  <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-16">
+                    <div className="flex-1 w-full">
+                      <input 
+                        value={title} 
+                        onChange={(e) => { setTitle(e.target.value); setIsDirty(true); }} 
+                        className="bg-transparent text-6xl md:text-8xl font-black outline-none text-white w-full tracking-tighter placeholder:text-white/[0.03]" 
+                        placeholder="Untitled"
+                      />
+                      <div className="mt-6 flex items-center gap-3">
+                        {saveStatus === "saving" ? (
+                          <div className="text-orange-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><CloudUpload size={12} className="animate-bounce" /> Syncing...</div>
+                        ) : saveStatus === "saved" ? (
+                          <div className="text-green-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><CloudCheck size={12} /> Cloud Secured</div>
+                        ) : (
+                          <div className="text-white/10 text-[10px] font-black uppercase tracking-widest italic">All changes secured</div>
+                        )}
+                      </div>
                     </div>
+                    
+                    <motion.button 
+                      whileHover={{ scale: 1.1 }} 
+                      whileTap={{ scale: 0.9 }} 
+                      onClick={saveNote} 
+                      className={`p-6 rounded-[2rem] transition-all shadow-2xl ${isDirty ? 'bg-orange-600 shadow-orange-600/20' : 'bg-white/5 text-gray-600'}`}
+                    >
+                      <Save size={24} />
+                    </motion.button>
                   </div>
                   
-                  <motion.button 
-                    whileHover={{ scale: 1.1 }} 
-                    whileTap={{ scale: 0.9 }} 
-                    onClick={saveNote} 
-                    className={`p-5 rounded-full transition-all relative ${isDirty ? 'bg-orange-600 shadow-[0_0_30px_rgba(234,88,12,0.4)]' : 'bg-white/5 text-gray-500'}`}
-                  >
-                    {isDirty && <motion.span layoutId="glow" className="absolute inset-0 rounded-full bg-orange-400 blur-md opacity-30" animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2 }} />}
-                    <Save size={24} className="relative z-10" />
-                  </motion.button>
-                </div>
-                
-                <div className="sticky top-0 z-30 mb-12 p-1 bg-white/[0.01] border border-white/5 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl">
-                  <EditorToolbar execCmd={execCmd} />
-                </div>
+                  {/* STICKY TOOLBAR - Offset top-4 so it stays below the Navbar gap */}
+                  <div className="sticky top-4 z-30 mb-12 p-1.5 bg-white/[0.01] border border-white/5 backdrop-blur-3xl rounded-3xl shadow-2xl">
+                    <EditorToolbar execCmd={(cmd, val) => {
+                       if (editorRef.current) editorRef.current.focus();
+                       document.execCommand(cmd, false, val);
+                       setIsDirty(true);
+                    }} />
+                  </div>
 
-                <div 
-                  ref={editorRef} 
-                  contentEditable 
-                  spellCheck="false"
-                  className="editor-container mt-10 outline-none text-2xl text-gray-300 min-h-[60vh] leading-relaxed pb-40" 
-                  onInput={() => setIsDirty(true)} 
-                />
-              </motion.div>
-            ) : (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center opacity-10">
-                <Command size={80} className="mb-8 text-orange-500" />
-                <h3 className="text-3xl font-black uppercase tracking-[0.5em]">System Idle</h3>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <div 
+                    ref={editorRef} 
+                    contentEditable 
+                    spellCheck="false"
+                    className="editor-container mt-10 outline-none text-2xl text-white/80 min-h-[70vh] leading-relaxed pb-60" 
+                    onInput={() => setIsDirty(true)} 
+                  />
+                </motion.div>
+              ) : (
+                <div className="h-[70vh] flex flex-col items-center justify-center opacity-[0.03]">
+                  <Command size={150} />
+                  <h3 className="text-2xl font-black uppercase tracking-[1em] mt-8">System Idle</h3>
+                </div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </main>
       </div>
 
-      <NamingModal isOpen={modal.isOpen} type={modal.type} onClose={() => setModal({ ...modal, isOpen: false })} onSubmit={handleCreateSubmit} />
-      <DeleteModal isOpen={delModal.isOpen} itemName={delModal.name} itemType={delModal.type === 'file' ? 'Note' : 'Folder'} onClose={() => setDelModal({ ...delModal, isOpen: false })} onConfirm={confirmDelete} />
+      {/* MODALS */}
+      <NamingModal 
+        isOpen={modal.isOpen} 
+        type={modal.type} 
+        onClose={() => setModal({ ...modal, isOpen: false })} 
+        onSubmit={handleCreateSubmit} 
+      />
+      
+      <DeleteModal 
+        isOpen={delModal.isOpen} 
+        itemName={delModal.name} 
+        itemType={delModal.type === 'file' ? 'Note' : 'Folder'} 
+        onClose={() => setDelModal({ ...delModal, isOpen: false })} 
+        onConfirm={async () => {
+           await remove(ref(db, `users/${user.uid}/${delModal.type === 'file' ? 'notes' : 'folders'}/${delModal.id}`));
+           if (activeNote === delModal.id) setActiveNote(null);
+           setDelModal({ ...delModal, isOpen: false });
+        }} 
+      />
+
       <Watermark />
     </div>
   );

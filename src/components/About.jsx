@@ -1,120 +1,161 @@
 // src/components/About.jsx
 import React from "react";
-import { FiGithub, FiLinkedin, FiMail } from "react-icons/fi";
+import { FiGithub, FiLinkedin, FiMail, FiCode, FiLayers, FiZap, FiCpu } from "react-icons/fi";
 import Navbar from "./navbar";
 import { Link } from "react-router-dom";
 import Watermark from "./Watermark";
+import { motion } from "framer-motion";
 
 const About = ({ user, onSignOut }) => {
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.15, delayChildren: 0.2 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-950 text-gray-100">
-      {/* Navbar with user props */}
+    <div className="min-h-screen bg-[#050507] text-white selection:bg-orange-500/30 overflow-x-hidden">
+      {/* Dynamic Background Orbs */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[10%] right-[-5%] w-[600px] h-[600px] bg-orange-600/10 blur-[150px] rounded-full" />
+        <div className="absolute bottom-[10%] left-[-5%] w-[500px] h-[500px] bg-blue-600/10 blur-[130px] rounded-full" />
+      </div>
+
       <Navbar user={user} onSignOut={onSignOut} />
 
-      <div className="flex flex-col items-center pt-24 px-4">
-        <div className="max-w-5xl w-full bg-black/40 backdrop-blur-3xl border border-gray-700 rounded-3xl shadow-2xl p-12 space-y-12">
-
-          {/* Header */}
-          <h1 className="text-5xl sm:text-6xl font-bold text-amber-400 text-center mb-6">
-            About This Project
+      <motion.main 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="relative z-10 max-w-6xl mx-auto pt-32 pb-24 px-6"
+      >
+        {/* --- HERO SECTION --- */}
+        <motion.section variants={itemVariants} className="text-center mb-24">
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-6 bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent">
+            Task<span className="text-orange-500">Flow.</span>
           </h1>
+          <p className="text-white/40 text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed">
+            A premium ecosystem designed to bridge the gap between human focus and digital productivity.
+          </p>
+        </motion.section>
 
-          {/* Introduction / Bio */}
-          <section className="space-y-4">
-            <h2 className="text-3xl font-semibold text-white mt-40">Hi, I'm Joy Shadman</h2>
-            <p className="text-gray-200 text-lg leading-relaxed">
-              I'm a passionate <span className="text-orange-400 font-semibold">Full Stack Developer</span>
-              with a love for building sleek, modern, and responsive web applications.
-              I enjoy turning ideas into real-life projects that are efficient, interactive, and user-friendly.
-            </p>
-            <p className="text-gray-200 text-lg leading-relaxed">
-              This project helps users manage tasks, notes, timers, and alarms efficiently,
-              using the latest web technologies to provide a smooth, glassy, iOS-inspired experience.
-            </p>
-          </section>
-
-          {/* Skills / Tech Stack */}
-          <section className="space-y-4">
-            <h2 className="text-3xl font-semibold text-white">Skills & Technologies</h2>
-            <ul className="list-disc list-inside text-gray-200 text-lg space-y-1">
-              <li>React.js & React Hooks for dynamic UI</li>
-              <li>Firebase Realtime Database & Authentication</li>
-              <li>Tailwind CSS for glassy, responsive UI</li>
-              <li>React Icons & React Hot Toast for enhanced UX</li>
-              <li>JavaScript, HTML5, CSS3 for core functionality</li>
-            </ul>
-          </section>
-
-          {/* Project Features */}
-          <section className="space-y-4">
-            <h2 className="text-3xl font-semibold text-white">Project Features</h2>
-            <ul className="list-disc list-inside text-gray-200 text-lg space-y-1">
-              <li>Glassy iOS-style UI with animations and hover effects</li>
-              <li>Create, edit, delete, and mark tasks as completed</li>
-              <li>Timers and alarms with notifications</li>
-              <li>Persistent storage with Firebase</li>
-              <li>Fully responsive for desktop and mobile</li>
-            </ul>
-          </section>
-
-          {/* Experience & Soft Skills */}
-          <section className="space-y-4 mb-49">
-            <h2 className="text-3xl font-semibold text-white">Experience & Soft Skills</h2>
-            <ul className="list-disc list-inside text-gray-200 text-lg space-y-1">
-              <li>Team collaboration & project management</li>
-              <li>Critical thinking & problem-solving</li>
-              <li>Attention to detail & clean code practices</li>
-              <li>Continuous learning & adaptability</li>
-            </ul>
-          </section>
-
-          {/* Contact / Connect */}
-          <section className="space-y-4 text-center">
-            <h2 className="text-3xl font-semibold text-white">Connect With Me</h2>
-            <div className="flex items-center justify-center gap-8 mt-2 mb-4">
-              <a
-                href="https://github.com/joyshadman"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-orange-400 transition-colors"
-              >
-                <FiGithub size={36} />
-              </a>
-              <a
-                href="https://linkedin.com/in/joyshadman"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-blue-500 transition-colors"
-              >
-                <FiLinkedin size={36} />
-              </a>
-              <a
-                href="mailto:joyshadman@Gmail.com"
-                className="text-white hover:text-red-500 transition-colors"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert("joyshadman@gmail.com");
-                }}
-              >
-                <FiMail size={36} />
-              </a>
+        {/* --- BIO CARD --- */}
+        <motion.section variants={itemVariants} className="mb-12">
+          <div className="bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-[3rem] p-8 md:p-16 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+              <FiCpu size={120} />
             </div>
-            <p className="text-gray-400 text-sm mt-4">
-              &copy; {new Date().getFullYear()} Joy Shadman. All rights reserved.
-              <span>
-                Terms-condition
-                <Link to="/Terms" className="text-orange-400 hover:underline ml-1">
-                  (Read more)
-                </Link>
-              </span>
-            </p>
-          </section>
+            
+            <div className="relative z-10 max-w-3xl">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500 mb-4">The Architect</h2>
+              <h3 className="text-4xl md:text-5xl font-bold mb-8 tracking-tight">Hi, I'm Joy Shadman.</h3>
+              <p className="text-xl text-white/60 leading-relaxed mb-6">
+                I'm a <span className="text-white font-bold">Full Stack Developer</span> obsessed with pixel-perfection and high-performance web architecture. I don't just write code; I build digital experiences that feel alive.
+              </p>
+              <p className="text-lg text-white/40 leading-relaxed">
+                TaskFlow was born from the need for a tool that is as beautiful as it is functional—combining a glassy iOS aesthetic with the robust power of Firebase.
+              </p>
+            </div>
+          </div>
+        </motion.section>
 
+        {/* --- TECH & FEATURES GRID --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* Skills */}
+          <motion.div variants={itemVariants} className="bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-[3rem] p-10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-orange-500/10 rounded-2xl text-orange-500">
+                <FiCode size={24} />
+              </div>
+              <h4 className="text-2xl font-bold">Tech Stack</h4>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {['React.js', 'Firebase', 'Tailwind CSS', 'Framer Motion', 'Cloud Firestore', 'Lucide Icons'].map((tech) => (
+                <div key={tech} className="flex items-center gap-2 px-4 py-3 bg-white/5 rounded-2xl border border-white/5 text-sm font-bold text-white/70">
+                  <div className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                  {tech}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Features */}
+          <motion.div variants={itemVariants} className="bg-white/[0.02] backdrop-blur-3xl border border-white/10 rounded-[3rem] p-10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-500">
+                <FiLayers size={24} />
+              </div>
+              <h4 className="text-2xl font-bold">Core Features</h4>
+            </div>
+            <ul className="space-y-4">
+              {[
+                "Real-time Data Sync",
+                "Advanced Glassmorphism UI",
+                "Global Alarm & Timer System",
+                "Secure Google Authentication",
+                "Responsive Fluid Layouts"
+              ].map((feature) => (
+                <li key={feature} className="flex items-center gap-3 text-white/50 text-sm font-medium">
+                  <FiZap className="text-orange-500" size={16} />
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
         </div>
-      </div>
-      <Watermark/>
+
+        {/* --- CONTACT FOOTER --- */}
+        <motion.section variants={itemVariants} className="bg-gradient-to-b from-white/[0.05] to-transparent backdrop-blur-3xl border border-white/10 rounded-[4rem] p-12 text-center">
+          <h2 className="text-3xl font-bold mb-8">Let's Connect</h2>
+          <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12">
+            <SocialIcon href="https://github.com/joyshadman" icon={<FiGithub />} label="GitHub" color="hover:text-white" />
+            <SocialIcon href="https://linkedin.com/in/joyshadman" icon={<FiLinkedin />} label="LinkedIn" color="hover:text-blue-400" />
+            <SocialIcon 
+                href="mailto:joyshadman@gmail.com" 
+                icon={<FiMail />} 
+                label="Email" 
+                color="hover:text-red-400" 
+                isEmail 
+            />
+          </div>
+          
+          <div className="pt-8 border-t border-white/5">
+            <p className="text-white/20 text-xs font-black uppercase tracking-[0.3em]">
+              &copy; {new Date().getFullYear()} Joy Shadman &bull; 
+              <Link to="/Terms" className="text-orange-500 hover:text-orange-400 ml-2 transition-colors">
+                Terms & Privacy
+              </Link>
+            </p>
+          </div>
+        </motion.section>
+      </motion.main>
+
+      <Watermark />
     </div>
   );
 };
+
+const SocialIcon = ({ href, icon, label, color, isEmail }) => (
+  <motion.a
+    href={href}
+    target={isEmail ? "_self" : "_blank"}
+    rel="noopener noreferrer"
+    whileHover={{ y: -5, scale: 1.1 }}
+    onClick={isEmail ? (e) => { e.preventDefault(); alert("joyshadman@gmail.com"); } : undefined}
+    className={`flex flex-col items-center gap-2 text-white/40 transition-all ${color}`}
+  >
+    <div className="w-16 h-16 bg-white/5 rounded-[1.5rem] border border-white/10 flex items-center justify-center mb-2 group-hover:border-current transition-colors">
+      {React.cloneElement(icon, { size: 28 })}
+    </div>
+    <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+  </motion.a>
+);
 
 export default About;
