@@ -8,3 +8,45 @@ body {
   margin: 0 auto;
   width: 1200px;
 }
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(249, 115, 22, 0.4); }
+
+/* Target the entire browser scrollbar */
+::-webkit-scrollbar {
+  width: 8px;               /* Thin and elegant */
+  height: 8px;              /* For horizontal scroll */
+}
+
+/* The Track (the background area of the scrollbar) */
+::-webkit-scrollbar-track {
+  background: transparent;  /* Keeps the background glassy */
+  margin-block: 4px;        /* Adds a little gap at top/bottom */
+}
+
+/* The Thumb (the moving part) */
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05); /* Very faint white */
+  backdrop-filter: blur(10px);           /* Glassy blur */
+  border-radius: 100px;                  /* Fully rounded pill shape */
+  border: 2px solid transparent;         /* Creates padding effect */
+  background-clip: content-box;          /* Makes the thumb smaller than the track */
+  transition: all 0.3s ease;
+}
+
+/* Hover effect: Glows when you interact with it */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(249, 115, 22, 0.4);   /* Orange glow on hover */
+  background-clip: content-box;
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}

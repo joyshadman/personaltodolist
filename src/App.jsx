@@ -4,8 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { app } from "./Config/firebaseConfig";
 
-import Navbar from "./components/Navbar";
-import Btn from "./components/Btn";
+import Navbar from "./components/navbar";
+import Btn from "./components/btn";
 import LoginPage from "./components/LoginPage";
 import TermsPolicyPage from "./components/Termsploicy";
 import Notes from "./components/Notes";

@@ -1,7 +1,7 @@
 // src/components/About.jsx
 import React from "react";
 import { FiGithub, FiLinkedin, FiMail } from "react-icons/fi";
-import Navbar from "./Navbar";
+import Navbar from "./navbar";
 import { Link } from "react-router-dom";
 import Watermark from "./Watermark";
 
