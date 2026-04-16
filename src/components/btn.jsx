@@ -39,6 +39,13 @@ const Btn = ({ user }) => {
   const [remaining, setRemaining] = useState({});
   const [isSorting, setIsSorting] = useState(false);
   const [ringingId, setRingingId] = useState(null);
+  const todoListRef = useRef([]);
+  const ringingRef = useRef(null);
+  // If a timer is already expired when we first observe it after mounting Home,
+  // we mute it for that specific timerEnd value to avoid "random" buzzes on navigation.
+  const mutedOverdueTimerEndsRef = useRef({});
+  const lastSeenTimerEndRef = useRef({});
+  const hasRungTimerEndRef = useRef({});
   
   // Motivation & Weather State
   const [quote, setQuote] = useState({ text: "Success is not final...", author: "Winston Churchill" });
@@ -128,31 +135,59 @@ const Btn = ({ user }) => {
     });
   }, [userPath]);
 
+  // Keep the latest todo list in a ref so the ticker interval doesn't need
+  // to be recreated whenever React state updates.
+  useEffect(() => {
+    todoListRef.current = todoList;
+  }, [todoList]);
+
   // Timer Ticker
   useEffect(() => {
     const ticker = setInterval(() => {
       const now = Date.now();
+      const list = todoListRef.current || [];
       const updatedRemaining = {};
-      let activeAlarm = null;
 
-      todoList.forEach(item => {
-        if (item.timerEnd) {
-          const diff = Math.max(0, Math.floor((item.timerEnd - now) / 1000));
-          updatedRemaining[item.id] = diff;
-          if (diff <= 0 && !item.completed && !ringingId) {
-            activeAlarm = item.id;
-          }
+      // Only ring a single timer at a time.
+      let alarmToRing = null;
+
+      for (const item of list) {
+        if (!item.timerEnd) continue;
+
+        const diff = Math.max(0, Math.floor((item.timerEnd - now) / 1000));
+        updatedRemaining[item.id] = diff;
+
+        // If timerEnd changed since we last observed it for this id,
+        // reset internal state for the new timer.
+        const lastSeenTimerEnd = lastSeenTimerEndRef.current[item.id];
+        if (lastSeenTimerEnd !== item.timerEnd) {
+          lastSeenTimerEndRef.current[item.id] = item.timerEnd;
+          hasRungTimerEndRef.current[item.id] = null;
+          // Mute if it's already expired at the moment we first observe it after mounting.
+          mutedOverdueTimerEndsRef.current[item.id] = diff <= 0 ? item.timerEnd : null;
         }
-      });
+
+        const isDue = diff <= 0;
+        const isMuted = mutedOverdueTimerEndsRef.current[item.id] === item.timerEnd;
+        const hasAlreadyRung = hasRungTimerEndRef.current[item.id] === item.timerEnd;
+
+        if (isDue && !item.completed && ringingRef.current == null && !isMuted && !hasAlreadyRung) {
+          alarmToRing = item;
+          hasRungTimerEndRef.current[item.id] = item.timerEnd;
+          ringingRef.current = item.id;
+          break;
+        }
+      }
 
       setRemaining(updatedRemaining);
-      if (activeAlarm) {
-        setRingingId(activeAlarm);
+      if (alarmToRing) {
+        setRingingId(alarmToRing.id);
         playSound("alarm");
       }
     }, 1000);
+
     return () => clearInterval(ticker);
-  }, [todoList, ringingId]);
+  }, []);
 
   const sortedList = useMemo(() => {
     return [...todoList].sort((a, b) => {
@@ -186,9 +221,30 @@ const Btn = ({ user }) => {
   };
 
   const handleStopAlarm = async (id) => {
+    // Stop immediately to avoid "re-trigger" on the next ticker tick.
     stopSound("alarm");
+    ringingRef.current = null;
     setRingingId(null);
     playSound("click");
+
+    if (id) {
+      const stoppedTimerEnd = lastSeenTimerEndRef.current[id];
+      if (stoppedTimerEnd != null) {
+        // Prevent re-trigger if Firebase (or local state reconciliation) lags,
+        // even for the brief window before `timerEnd: null` propagates.
+        mutedOverdueTimerEndsRef.current[id] = stoppedTimerEnd;
+        hasRungTimerEndRef.current[id] = stoppedTimerEnd;
+      }
+
+      // Optimistically clear timerEnd locally so the interval can't re-trigger
+      // before Firebase finishes the update.
+      setTodoList((prev) => {
+        const next = prev.map((t) => (t.id === id ? { ...t, timerEnd: null } : t));
+        todoListRef.current = next;
+        return next;
+      });
+    }
+
     if (id && userPath) {
       await update(ref(db, `${userPath}/${id}`), { timerEnd: null });
     }
