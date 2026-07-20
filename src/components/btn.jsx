@@ -6,7 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipLoader } from "react-spinners";
 import { 
-  FiTrash2, FiEdit3, FiClock, FiXCircle, FiPlus, 
+  FiTrash2, FiEdit3, FiClock, FiXCircle, FiPlus, FiRepeat, 
   FiActivity, FiAward, FiZap, FiTarget, FiVolumeX, 
   FiSun, FiCloud, FiCloudRain, FiCloudSnow, FiWind, FiMapPin, FiSearch
 } from "react-icons/fi";
@@ -250,6 +250,16 @@ const Btn = ({ user }) => {
     }
   };
 
+  const handleToggleOngoing = (item) => {
+    if (!userPath) return;
+    playSound("click");
+    const next = !item.ongoing;
+    // Optimistic local update so the UI reflects the change instantly.
+    setTodoList((prev) => prev.map((t) => (t.id === item.id ? { ...t, ongoing: next } : t)));
+    // Persist immediately to Firebase Realtime Database.
+    update(ref(db, `${userPath}/${item.id}`), { ongoing: next });
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center bg-[#050507]"><ClipLoader color="#f97316" size={50} /></div>;
 
   const stats = {
@@ -314,7 +324,7 @@ const Btn = ({ user }) => {
             <div className="space-y-4 mb-16">
               <AnimatePresence mode="popLayout">
                 {sortedList.map((item) => (
-                  <SwipeableTask key={item.id} item={item} userPath={userPath} remaining={remaining[item.id] || 0} setTimerModal={setTimerModal} setToDo={setToDo} setEditId={setEditId} setCategory={setCategory} setFocusMode={setFocusMode} playSound={playSound} />
+                  <SwipeableTask key={item.id} item={item} userPath={userPath} remaining={remaining[item.id] || 0} setTimerModal={setTimerModal} setToDo={setToDo} setEditId={setEditId} setCategory={setCategory} setFocusMode={setFocusMode} playSound={playSound} onToggleOngoing={handleToggleOngoing} />
                 ))}
               </AnimatePresence>
             </div>
@@ -458,7 +468,7 @@ const BentoCard = ({ icon, label, val, color }) => (
   </div>
 );
 
-const SwipeableTask = ({ item, userPath, remaining, setToDo, setEditId, setCategory, setTimerModal, setFocusMode, playSound }) => (
+const SwipeableTask = ({ item, userPath, remaining, setToDo, setEditId, setCategory, setTimerModal, setFocusMode, playSound, onToggleOngoing }) => (
   <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}>
     <div className={`p-5 bg-white/[0.03] backdrop-blur-3xl border rounded-[2.2rem] flex items-center gap-4 transition-all duration-500 ${CATEGORIES[item.category || "General"]} ${item.completed ? "opacity-20 grayscale border-transparent" : "border-white/10 shadow-xl"}`}>
       <input type="checkbox" checked={item.completed} onChange={() => { playSound("click"); update(ref(db, `${userPath}/${item.id}`), { completed: !item.completed }); }} className="w-6 h-6 rounded-full accent-orange-500 cursor-pointer" />
@@ -468,8 +478,15 @@ const SwipeableTask = ({ item, userPath, remaining, setToDo, setEditId, setCateg
             <span className="text-[9px] font-black uppercase opacity-40">{item.category}</span>
             {remaining > 0 && <span className="text-[10px] font-mono text-orange-400 font-black animate-pulse">● {Math.floor(remaining/60)}:{(remaining%60).toString().padStart(2,'0')}</span>}
         </div>
+        {item.ongoing && (
+          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-orange-500/20 backdrop-blur-xl">
+            <FiRepeat size={11} className="text-orange-400" />
+            <span className="text-[9px] font-black uppercase tracking-wider text-orange-400">This Todo List is Ongoing</span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3">
+        <button onClick={() => onToggleOngoing(item)} title={item.ongoing ? "Ongoing — click to disable" : "Make ongoing"} className={`p-2 transition-colors ${item.ongoing ? "text-orange-400" : "text-white/30 hover:text-orange-400"}`}><FiRepeat size={18}/></button>
         <button onClick={() => setTimerModal({ open: true, id: item.id, input: "" })} className="p-2 text-white/30 hover:text-orange-400 transition-colors"><FiClock size={18}/></button>
         <button onClick={() => { setToDo(item.TodoName); setEditId(item.id); setCategory(item.category || "General"); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="p-2 text-white/30 hover:text-white transition-colors"><FiEdit3 size={18}/></button>
         <button onClick={() => { remove(ref(db, `${userPath}/${item.id}`)); }} className="p-2 text-white/30 hover:text-red-500 transition-colors"><FiTrash2 size={18}/></button>
